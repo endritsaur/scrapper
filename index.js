@@ -1,4 +1,6 @@
 const puppeteer = require('puppeteer');
+const mongoose = require('mongoose');
+const Price = require('./models/price');
 
 async function run() {
   const browser = await puppeteer.launch({
@@ -12,7 +14,7 @@ async function run() {
   // dom element selectors
   const BUTTON_SELECTOR = '#login > form > div.auth-form-body.mt-3 > input.btn.btn-primary.btn-block';
   const SEARCH_SELECTOR = '#searchBarBN';
-  const query = 'saramago';
+  const query = 'joel dicker';
 
   await page.click(SEARCH_SELECTOR);
   await page.keyboard.type(query);
@@ -21,10 +23,10 @@ async function run() {
 
   const LIST_PRICE_SELECTOR = '#gridView > div > div:nth-child(INDEX) > div.product-shelf-info.product-info-view.text--left > div.product-shelf-pricing > div:nth-child(1) > a > span:nth-child(2)';
   
-  const LENGTH_SELECTOR_CLASS = 'mt-l';
+  const LENGTH_SELECTOR_CLASS = 'product-image-container ';
 
   let listLength = await page.evaluate((sel) => {
-    return document.getElementsByClassName(sel).length;
+    return $(document.getElementsByClassName(sel)).length;
   }, LENGTH_SELECTOR_CLASS);
 
   let numPages = await getNumPages(page);
@@ -34,7 +36,7 @@ async function run() {
     
     await page.goto(pageUrl);
 
-    for (let i = 1; i <= 20; i++) {
+    for (let i = 1; i <= listLength - 1; i++) {
       // change the index to the next child
       let priceSelector = LIST_PRICE_SELECTOR.replace("INDEX", i);
   
@@ -43,8 +45,15 @@ async function run() {
           priceString = priceString.substring(2);
           return priceString;
         }, priceSelector);
+
+        let finalPrice = parseFloat(price);
   
       console.log(price);
+
+      upsertPrice({
+        price: finalPrice,
+        dateCrawled: new Date()
+      });
     }
   }
   
@@ -70,6 +79,21 @@ async function getNumPages(page) {
   */
   let numPages = Math.ceil(numResults / 20);
   return numPages;
+}
+
+function upsertPrice(userObj) {
+	
+	const DB_URL = 'mongodb://localhost/thal';
+
+  	if (mongoose.connection.readyState == 0) { mongoose.connect(DB_URL); }
+
+    	// if this email exists, update the entry, don't insert
+	//let conditions = { email: userObj.email };
+	let options = { upsert: true, new: true, setDefaultsOnInsert: true };
+
+  	Price.findOneAndUpdate(userObj, options, (err, result) => {
+  		if (err) throw err;
+  	});
 }
 
 run();

@@ -12,9 +12,10 @@ async function run() {
   // dom element selectors
   const BUTTON_SELECTOR = '#login > form > div.auth-form-body.mt-3 > input.btn.btn-primary.btn-block';
   const SEARCH_SELECTOR = '#searchBarBN';
+  const query = 'saramago';
 
   await page.click(SEARCH_SELECTOR);
-  await page.keyboard.type("saramago");
+  await page.keyboard.type(query);
   await page.keyboard.press('Enter');
   await page.waitForNavigation();
 
@@ -26,18 +27,26 @@ async function run() {
     return document.getElementsByClassName(sel).length;
   }, LENGTH_SELECTOR_CLASS);
 
-  for (let i = 1; i <= 20; i++) {
-    // change the index to the next child
-    let priceSelector = LIST_PRICE_SELECTOR.replace("INDEX", i);
+  let numPages = await getNumPages(page);
 
-    let price = await page.evaluate((sel) => {
-        let priceString = document.querySelector(sel).textContent;
-        priceString = priceString.substring(2);
-        return priceString;
-      }, priceSelector);
+  for (let h = 1; h <= numPages; h++) {
+    let pageUrl = `https://www.barnesandnoble.com/s/${query}?Nrpp=20&page=` + h;
+    
+    await page.goto(pageUrl);
 
-    console.log(price);
+    for (let i = 1; i <= 20; i++) {
+      // change the index to the next child
+      let priceSelector = LIST_PRICE_SELECTOR.replace("INDEX", i);
+  
+      let price = await page.evaluate((sel) => {
+          let priceString = document.querySelector(sel).textContent;
+          priceString = priceString.substring(2);
+          return priceString;
+        }, priceSelector);
+  
+      console.log(price);
     }
+  }
   
   browser.close();
 }

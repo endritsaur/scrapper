@@ -1,5 +1,4 @@
 const puppeteer = require('puppeteer');
-const mongoose = require('mongoose');
 const Price = require('./models/price');
 
 async function run() {
@@ -21,13 +20,11 @@ async function run() {
   await page.keyboard.press('Enter');
   await page.waitForNavigation();
 
+  const LIST_NAME_SELECTOR ='#gridView > div > div:nth-child(INDEX) > div.product-shelf-info.product-info-view.text--left > div.product-shelf-title.product-info-title.pt-xs > a'
   const LIST_PRICE_SELECTOR = '#gridView > div > div:nth-child(INDEX) > div.product-shelf-info.product-info-view.text--left > div.product-shelf-pricing > div:nth-child(1) > a > span:nth-child(2)';
-  
-  const LENGTH_SELECTOR_CLASS = 'product-image-container ';
 
-  let listLength = await page.evaluate((sel) => {
-    return $(document.getElementsByClassName(sel)).length;
-  }, LENGTH_SELECTOR_CLASS);
+
+  const LENGTH_SELECTOR_CLASS = 'product-image-container ';
 
   let numPages = await getNumPages(page);
 
@@ -36,9 +33,14 @@ async function run() {
     
     await page.goto(pageUrl);
 
-    for (let i = 1; i <= listLength - 1; i++) {
+    let listLength = await page.evaluate((sel) => {
+      return $(document.getElementsByClassName(sel)).length;
+    }, LENGTH_SELECTOR_CLASS);
+
+    for (let i = 1; i <= listLength; i++) {
       // change the index to the next child
       let priceSelector = LIST_PRICE_SELECTOR.replace("INDEX", i);
+      let nameSelector = LIST_NAME_SELECTOR.replace("INDEX", i);
   
       let price = await page.evaluate((sel) => {
           let priceString = document.querySelector(sel).textContent;
@@ -46,14 +48,13 @@ async function run() {
           return priceString;
         }, priceSelector);
 
+      let name = await page.evaluate((sel) => {
+        return document.querySelector(sel).textContent;
+      }, nameSelector);
+
         let finalPrice = parseFloat(price);
   
-      console.log(price);
-
-      upsertPrice({
-        price: finalPrice,
-        dateCrawled: new Date()
-      });
+      console.log(name + " => " + finalPrice);
     }
   }
   
@@ -79,21 +80,6 @@ async function getNumPages(page) {
   */
   let numPages = Math.ceil(numResults / 20);
   return numPages;
-}
-
-function upsertPrice(userObj) {
-	
-	const DB_URL = 'mongodb://localhost/thal';
-
-  	if (mongoose.connection.readyState == 0) { mongoose.connect(DB_URL); }
-
-    	// if this email exists, update the entry, don't insert
-	//let conditions = { email: userObj.email };
-	let options = { upsert: true, new: true, setDefaultsOnInsert: true };
-
-  	Price.findOneAndUpdate(userObj, options, (err, result) => {
-  		if (err) throw err;
-  	});
 }
 
 run();
